@@ -132,6 +132,7 @@ class TestTools(unittest.TestCase):
         self.assertIn("calculator", names)
         self.assertIn("query_knowledge_base", names)
         self.assertIn("web_search", names)
+        self.assertIn("weather", names)
         self.assertIn("get_current_time", names)
 
 

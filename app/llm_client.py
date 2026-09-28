@@ -131,6 +131,10 @@ class LLMClient:
                 )
             raise
 
+    async def acreate(self, **kwargs) -> Any:
+        """Raw chat completion returning the full response object (usage included)."""
+        return await self._call_with_fallback(**kwargs)
+
     async def chat(
         self,
         user_message: str,

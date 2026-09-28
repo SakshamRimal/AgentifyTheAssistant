@@ -42,6 +42,8 @@ class VectorStore:
 
     def query(self, query_text: str, top_k: int = 4) -> list[dict]:
         results = self.collection.query(query_texts=[query_text], n_results=top_k)
+        if not results or not results.get("ids") or len(results["ids"]) == 0:
+            return []
         chunks = []
         for i in range(len(results["ids"][0])):
             chunks.append({
@@ -50,21 +52,12 @@ class VectorStore:
                 "metadata": results["metadatas"][0][i],
                 "distance": results["distances"][0][i],
             })
-        if results and results.get("ids") and len(results["ids"]) > 0:
-            for i in range(len(results["ids"][0])):
-                chunks.append({
-                    "chunk_id": results["ids"][0][i],
-                    "text": results["documents"][0][i],
-                    "metadata": results["metadatas"][0][i],
-                    "distance": results["distances"][0][i],
-                })
         return chunks
 
     def delete_by_source(self, source_filename: str):
         self.collection.delete(where={"source": source_filename})
 
     def count(self) -> int:
-        return self.collection.count()
         try:
             return self.collection.count()
         except Exception:
