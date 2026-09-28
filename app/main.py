@@ -7,7 +7,14 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.llm_client import llm_client
-from app.schemas import ChatRequest, ChatResponse, AssistantAnswer
+from app.schemas import (
+    ChatRequest,
+    ChatResponse,
+    AssistantAnswer,
+    ResearchRequest,
+    ResearchResponse,
+)
+from app.agent import run_research
 from app.rag.retriever import retrieve, format_context
 from app.rag import ingest as ingest_module
 from app.cache import response_cache
@@ -158,6 +165,29 @@ async def chat_structured(request: ChatRequest):
     except Exception as e:
         logger.exception("Structured chat request failed")
         raise HTTPException(status_code=500, detail=f"Structured chat failed: {type(e).__name__}")
+
+
+@app.post("/chat/research", response_model=ResearchResponse)
+async def chat_research(request: ResearchRequest):
+    """Agentic research loop: the model decides its own tool sequence and stop point."""
+    try:
+        result = await run_research(
+            request.message,
+            mode=request.mode,
+            max_steps=request.max_steps,
+            temperature=request.temperature if request.temperature is not None else 0.2,
+            top_p=request.top_p if request.top_p is not None else 1.0,
+            max_tokens=request.max_tokens if request.max_tokens is not None else 1200,
+            inject_failure=request.inject_failure,
+        )
+        return ResearchResponse(**result)
+    except openai.APIConnectionError:
+        raise HTTPException(status_code=503, detail="LLM service unavailable. Please try again later.")
+    except openai.RateLimitError:
+        raise HTTPException(status_code=429, detail="LLM rate limit exceeded. Please wait before retrying.")
+    except Exception as e:
+        logger.exception("Research request failed")
+        raise HTTPException(status_code=500, detail=f"Research loop failed: {type(e).__name__}")
 
 
 @app.get("/rag/documents")

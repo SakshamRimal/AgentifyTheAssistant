@@ -1,6 +1,5 @@
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class SourceRef(BaseModel):
@@ -21,7 +20,6 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    history: Optional[list[dict]] = None
     history: Optional[list[Union[ChatMessage, dict[str, Any]]]] = None
     temperature: Optional[float] = Field(default=0.2, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: Optional[float] = Field(default=1.0, ge=0.0, le=1.0, description="Nucleus sampling threshold")
@@ -53,6 +51,49 @@ class StructuredChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: list[SourceRef] = []
-    confidence: float | None = None
     confidence: Optional[float] = None
     structured_data: Optional[dict[str, Any]] = None
+
+
+class ResearchRequest(BaseModel):
+    """Request for the agentic research endpoint (/chat/research)."""
+    message: str = Field(..., min_length=1, description="Question for the research agent")
+    mode: Literal["single", "multi"] = Field(
+        default="multi",
+        description="single = one agent with in-context self-check; multi = researcher + isolated verifier",
+    )
+    max_steps: int = Field(default=6, ge=1, le=10, description="Hard cap on researcher iterations")
+    temperature: Optional[float] = Field(default=0.2, ge=0.0, le=2.0)
+    top_p: Optional[float] = Field(default=1.0, ge=0.0, le=1.0)
+    max_tokens: Optional[int] = Field(default=1200, ge=1, le=4096)
+    inject_failure: Optional[str] = Field(
+        default=None,
+        description="TEST ONLY: force a tool failure (kb_down | malformed_retrieval | timeout)",
+    )
+
+
+class TokenUsageModel(BaseModel):
+    prompt: int = 0
+    completion: int = 0
+    total: int = 0
+    calls: int = 0
+
+
+class ResearchResponse(BaseModel):
+    answer: str
+    sources: list[SourceRef] = []
+    confidence: Optional[float] = None
+    mode: str
+    steps: int = Field(..., description="Number of researcher iterations")
+    stop_reason: str = Field(..., description="submitted | clarification | max_steps")
+    clarification: Optional[str] = None
+    verified: Optional[bool] = None
+    verification: Optional[dict[str, Any]] = None
+    tools_used: list[str] = []
+    trajectory: list[dict[str, Any]] = []
+    fabricated_citations: list[dict[str, Any]] = []
+    tool_errors: list[str] = []
+    tokens: TokenUsageModel
+    latency_ms: float = 0.0
+    injection: str = ""
+    max_steps: int = 0
