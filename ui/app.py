@@ -31,6 +31,7 @@ with st.sidebar:
         "Response Mode",
         [
             "RAG (grounded + sources)",
+            "🔬 Research (agentic)",
             "Chat with tools",
             "Structured JSON",
             "Plain chat",
@@ -153,6 +154,7 @@ if user_input:
         "Chat with tools": "/chat/tools",
         "Structured JSON": "/chat/structured",
         "RAG (grounded + sources)": "/chat/rag",
+        "🔬 Research (agentic)": "/chat/research",
     }
     endpoint = endpoint_map[mode]
 
@@ -214,6 +216,31 @@ if user_input:
                                 st.caption(f"• **{s['document']}** [chunk: `{str(s['chunk_id'])[:8]}`]")
                     if confidence is not None:
                         st.caption(f"🎯 Model Confidence: {confidence:.0%}")
+
+                    if data.get("steps") is not None:
+                        verification = data.get("verification") or {}
+                        token_total = (data.get("tokens") or {}).get("total", 0)
+                        parts = [
+                            f"🧭 {data.get('steps', 0)} agent step(s)",
+                            f"stop: {data.get('stop_reason', '?')}",
+                        ]
+                        if verification.get("verdict"):
+                            parts.append(f"verify: {verification['verdict']} (round {verification.get('round')})")
+                        if token_total:
+                            parts.append(f"{token_total} tokens")
+                        st.caption(" · ".join(parts))
+                        if data.get("tool_errors"):
+                            st.warning(f"⚠️ {len(data['tool_errors'])} tool error(s) during the run")
+                        if data.get("fabricated_citations"):
+                            st.warning(
+                                f"🚫 Rejected {len(data['fabricated_citations'])} unsupported citation(s)"
+                            )
+                        if data.get("stop_reason") == "clarification" and data.get("clarification"):
+                            st.info(f"Agent asked: {data['clarification']}")
+                        if data.get("trajectory"):
+                            with st.expander("🧭 Agent trajectory (step-by-step decisions)"):
+                                st.json(data["trajectory"])
+
                     st.caption(f"⏱️ {elapsed_ms}ms")
 
                     st.session_state.messages.append({
