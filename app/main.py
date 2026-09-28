@@ -64,8 +64,6 @@ async def health_check():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        history_dicts = [h.model_dump() for h in request.history] if request.history else None
-        answer = await llm_client.chat(request.message, history=history_dicts)
         history_dicts = request.get_normalized_history()
         answer = await llm_client.chat(
             request.message,
@@ -87,8 +85,6 @@ async def chat(request: ChatRequest):
 @app.post("/chat/tools")
 async def chat_with_tools(request: ChatRequest):
     try:
-        history_dicts = [h.model_dump() for h in request.history] if request.history else None
-        result = await llm_client.chat_with_tools(request.message, history=history_dicts)
         history_dicts = request.get_normalized_history()
         result = await llm_client.chat_with_tools(
             request.message,
@@ -109,12 +105,10 @@ async def chat_with_tools(request: ChatRequest):
 @app.post("/chat/rag", response_model=ChatResponse)
 async def chat_rag(request: ChatRequest):
     try:
-        chunks = retrieve(request.message, top_k=4)
         # Offload synchronous ChromaDB vector search to threadpool to keep event loop unblocked
         chunks = await asyncio.to_thread(retrieve, request.message, top_k=4)
         context = format_context(chunks)
 
-        raw = await llm_client.chat_structured(request.message, context=context)
         raw = await llm_client.chat_structured(
             request.message,
             context=context,

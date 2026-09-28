@@ -58,17 +58,6 @@ def get_current_time() -> dict:
 
 TOOL_DEFINITIONS = [
     {
-        "type":"function",
-        "function":{
-            "name":"calculator",
-            "description":"Evaluate a basic arithmetic expression. Allowed functions: sqrt, pow, abs, round. Example: 'sqrt(16) + pow(2,3)'",
-            
-            "parameters":{
-                "type":"object",
-                "properties":{
-                    "expression":{
-                        "type":"string",
-                        "description":"The arithmetic expression to evaluate."
         "type": "function",
         "function": {
             "name": "calculator",
@@ -81,24 +70,11 @@ TOOL_DEFINITIONS = [
                         "description": "The arithmetic expression to evaluate.",
                     }
                 },
-                "required":["expression"]
                 "required": ["expression"],
             },
         },
-        
     },
     {
-      "type":"function",
-      "function" : {
-          "name": "query_knowledge_base",
-          "description" : "Search the internal document knowledge base for infromation relevant to the user's query. Returns a list of document chunks that may contain the answer.",
-          
-          "parameters" : {
-                "type":"object",
-                "properties":{
-                    "query":{
-                        "type":"string",
-                        "description":"The user's query to search for in the knowledge base."
         "type": "function",
         "function": {
             "name": "query_knowledge_base",
@@ -111,9 +87,6 @@ TOOL_DEFINITIONS = [
                         "description": "The user's query to search for in the knowledge base.",
                     }
                 },
-                "required":["query"]
-          },
-      },  
                 "required": ["query"],
             },
         },
@@ -152,23 +125,15 @@ TOOL_FUNCTIONS = {
     "calculator": calculator,
     "query_knowledge_base": query_knowledge_base,
     "web_search": web_search,
-    
     "get_current_time": get_current_time,
 }
-
-def execute_tool(name:str , arguments_json: str) -> str:
-    """
-    Execute a tool by name and return a JSON string result
-    """
 
 def execute_tool(name: str, arguments_json: str) -> str:
     """Execute a tool by name and return a JSON string result."""
     if name not in TOOL_FUNCTIONS:
         return json.dumps({"error": f"Tool '{name}' not found"})
-    
 
     try:
-        args = json.loads(arguments_json)
         args = json.loads(arguments_json) if arguments_json else {}
     except json.JSONDecodeError as e:
         return json.dumps({"error": f"Invalid JSON arguments: {str(e)}"})
@@ -178,9 +143,3 @@ def execute_tool(name: str, arguments_json: str) -> str:
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"error": f"Tool execution failed: {str(e)}"})
-
-    
-    result = TOOL_FUNCTIONS[name](**args)
-    return json.dumps(result)
-    
-    

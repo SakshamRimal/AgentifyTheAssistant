@@ -33,7 +33,6 @@ class CircuitBreaker:
     def record_failure(self):
         self.failure_count += 1
         self.last_failure_time = time.time()
-        if self.failure_count >= self.failure_threshold:
         if self.state == CircuitState.HALF_OPEN:
             self.state = CircuitState.OPEN
             logger.warning(

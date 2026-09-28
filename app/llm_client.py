@@ -82,7 +82,6 @@ class LLMClient:
                 wait_time = min(
                     settings.RETRY_BACKOFF_BASE * (2 ** attempt),
                     settings.RETRY_MAX_WAIT,
-                )
                 ) + jitter
                 logger.warning(
                     f"LLM call failed (attempt {attempt + 1}/{settings.MAX_RETRIES}): {e}. "
@@ -97,7 +96,6 @@ class LLMClient:
                     wait_time = min(
                         settings.RETRY_BACKOFF_BASE * (2 ** attempt),
                         settings.RETRY_MAX_WAIT,
-                    )
                     ) + jitter
                     logger.warning(
                         f"LLM API error {e.status_code} (attempt {attempt + 1}/{settings.MAX_RETRIES}): {e}. "
@@ -116,7 +114,6 @@ class LLMClient:
     async def _call_with_fallback(self, **kwargs) -> Any:
         if not self._circuit_breaker.allow_request():
             if self._fallback_client:
-                logger.warning("Circuit open, using fallback provider")
                 logger.warning("Circuit open, routing request to fallback provider")
                 return await self._fallback_client.chat.completions.create(
                     model=self._fallback_model, **kwargs
@@ -138,9 +135,6 @@ class LLMClient:
         self,
         user_message: str,
         history: list[dict] | None = None,
-        temperature: float = 0.2,
-        top_p: float = 1.0,
-        max_tokens: int = 800,
         temperature: float | None = None,
         top_p: float | None = None,
         max_tokens: int | None = None,
@@ -152,22 +146,17 @@ class LLMClient:
 
         messages = self._build_messages(user_message, history, system_prompt)
 
-        cached = response_cache.get(messages, self.model, temperature=temperature)
         cached = response_cache.get(messages, self.model, temperature=temp, top_p=top_p_val)
         if cached is not None:
             return cached
 
         response = await self._call_with_fallback(
             messages=messages,
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
             temperature=temp,
             top_p=top_p_val,
             max_tokens=tokens,
         )
         result = response.choices[0].message.content
-        response_cache.set(messages, self.model, result, temperature=temperature)
         response_cache.set(messages, self.model, result, temperature=temp, top_p=top_p_val)
         return result
 
@@ -175,13 +164,10 @@ class LLMClient:
         self,
         user_message: str,
         context: str = "",
-        temperature: float = 0.2,
-        max_tokens: int = 800,
         schema_instructions: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> dict:
-        schema_instructions = """
         temp = 0.0 if temperature is None else temperature
         tokens = 800 if max_tokens is None else max_tokens
 
@@ -194,7 +180,6 @@ class LLMClient:
         }
         If you used no retrieved context, return an empty "sources" array.
         """
-        full_system = SYSTEM_PROMPT + schema_instructions
         instructions = schema_instructions or default_schema
         full_system = SYSTEM_PROMPT + instructions
 
@@ -213,14 +198,11 @@ class LLMClient:
 
         response = await self._call_with_fallback(
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
             temperature=temp,
             max_tokens=tokens,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content
-        return await self._parse_json_with_repair(raw, messages)
         parsed = await self._parse_json_with_repair(raw, messages)
         response_cache.set(messages, self.model, parsed, temperature=temp)
         return parsed
@@ -229,8 +211,6 @@ class LLMClient:
         self,
         user_message: str,
         history: list[dict] | None = None,
-        temperature: float = 0.2,
-        max_tokens: int = 800,
         temperature: float | None = None,
         max_tokens: int | None = None,
         max_iterations: int = 5,
@@ -248,8 +228,6 @@ class LLMClient:
         for _ in range(max_iterations):
             response = await self._call_with_fallback(
                 messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
                 temperature=temp,
                 max_tokens=tokens,
                 tools=TOOL_DEFINITIONS,
@@ -286,8 +264,6 @@ class LLMClient:
 
         final = await self._call_with_fallback(
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
             temperature=temp,
             max_tokens=tokens,
         )
@@ -296,12 +272,9 @@ class LLMClient:
     async def _parse_json_with_repair(self, raw: str, original_messages: list[dict]) -> dict:
         try:
             return json.loads(raw)
-        except json.JSONDecodeError:
         except (json.JSONDecodeError, TypeError):
             repair_messages = original_messages + [
                 {"role": "assistant", "content": raw},
-                {"role": "user", "content": "That was not valid JSON. Return ONLY the corrected valid JSON object, nothing else."},
-                {"role": "assistant", "content": str(raw)},
                 {
                     "role": "user",
                     "content": "That was not valid JSON. Return ONLY the corrected valid JSON object, nothing else.",
